@@ -2,10 +2,42 @@ import { useLoaderData } from '@remix-run/react';
 import { getCollections } from '~/providers/collections/collections';
 import { CollectionCard } from '~/components/collections/CollectionCard';
 import { BookOpenIcon } from '@heroicons/react/24/solid';
-import { LoaderArgs } from '@remix-run/server-runtime';
+import type { LoaderFunctionArgs } from '@remix-run/node';
+import { FeatureSlider } from '~/components/home/Slider';
+import { slides } from '~/data/slides'; // Import your slide data
 import { useTranslation } from 'react-i18next';
 
-export async function loader({ request }: LoaderArgs) {
+// Placeholder slide data - updated for simplified Slider
+const sampleSlides = [
+  {
+    id: 'slide-1',
+    type: 'image' as const,
+    imageUrl: '/placeholder-image-1.jpg', // Use imageUrl
+    altText: 'Placeholder 1',
+    heading: 'Welcome to UAH Connect',
+    buttonLabel: 'Shop Now',
+    buttonLink: '/collections',
+  },
+  {
+    id: 'slide-2',
+    type: 'image' as const,
+    imageUrl: '/placeholder-image-2.jpg', // Use imageUrl
+    altText: 'Placeholder 2',
+    heading: 'Discover Amazing Products',
+    buttonLabel: 'View Collections',
+    buttonLink: '/collections',
+  },
+  {
+    id: 'slide-3',
+    type: 'video' as const,
+    videoUrl: '/videos/vid1.mp4',
+    coverImageUrl: '/videos/placeholder-vid1.webp', // Use coverImageUrl
+    heading: 'Check Out Our Video!',
+    // No button for this slide example
+  },
+];
+
+export async function loader({ request }: LoaderFunctionArgs) {
   const collections = await getCollections(request, { take: 20 });
   return {
     collections,
@@ -19,56 +51,8 @@ export default function Index() {
 
   return (
     <>
-      <div className="relative">
-        {/* Decorative image and overlay */}
-        <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
-          {headerImage && (
-            <img
-              className="absolute inset-0 w-full"
-              src={headerImage + '?w=800'}
-              alt="header"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-br from-zinc-400 to-black mix-blend-darken" />
-        </div>
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gray-900 opacity-50"
-        />
-        <div className="relative max-w-3xl mx-auto py-32 px-6 flex flex-col items-center text-center sm:py-64 lg:px-0">
-          <div className="relative bg-zinc-800 bg-opacity-0 rounded-lg p-0">
-            <h1 className="text-6xl text-transparent bg-clip-text font-extrabold tracking-normal lg:text-6xl bg-gradient-to-r from-yellow-600 via-red-500 to-blue-600">
-              {t('vendure.title')}
-            </h1>
-          </div>
-
-          <p className="mt-4 text-2xl text-white">
-            {t('vendure.intro')}{' '}
-            <a
-              href="https://www.vendure.io"
-              className="text-blue-300 hover:text-blue-500"
-            >
-              Vendure
-            </a>{' '}
-            &{' '}
-            <a
-              href="~/routes/__cart/index"
-              className="text-red-300 hover:text-red-500"
-            >
-              Remix
-            </a>
-          </p>
-          <p className="mt-4 text-gray-300 space-x-1">
-            <BookOpenIcon className="w-5 h-5 inline" />
-            <span>{t('common.readMore')}</span>
-            <a
-              className="text-primary-200 hover:text-primary-400"
-              href="https://www.vendure.io/blog/2022/05/lightning-fast-headless-commerce-with-vendure-and-remix"
-            >
-              {t('vendure.link')}
-            </a>
-          </p>
-        </div>
+      <div className="max-w-6xl mx-auto mt-8 rounded-lg overflow-hidden">
+         <FeatureSlider slides={slides} autoplayDelay={6000} />
       </div>
 
       <section

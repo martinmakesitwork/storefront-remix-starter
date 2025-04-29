@@ -42,7 +42,7 @@ const netlifyConfig = {
  */
 const devConfig = {
   appDirectory: 'app',
-  serverModuleFormat: 'cjs',
+  serverModuleFormat: 'esm',
   devServerPort: 8002,
   ignoredRouteFiles: ['.*'],
   ...commonConfig,
