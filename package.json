@@ -17,6 +17,7 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
     "@graphql-codegen/typescript-generic-sdk": "^3.0.4",
     "@headlessui/react": "^1.7.4",
     "@heroicons/react": "^2.0.13",
@@ -51,6 +52,7 @@
     "isbot": "^3.7.1",
     "lucide-react": "^0.503.0",
     "react": "^18.2.0",
+    "react-awesome-reveal": "^4.3.1",
     "react-dom": "^18.2.0",
     "react-i18next": "^14.0.0",
     "react-player": "^2.16.0",

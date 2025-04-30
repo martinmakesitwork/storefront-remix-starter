@@ -90,3 +90,5 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* TextReveal Component Styles removed - using react-awesome-reveal library now */

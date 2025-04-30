@@ -15,7 +15,7 @@ export function CollectionCard({
     >
       <span aria-hidden="true" className="">
         <div className="w-full h-full object-center object-cover">
-          <img src={collection.featuredAsset?.preview + '?w=300&h=300'} />
+          <img src={`${collection.featuredAsset?.preview ?? 'https://picsum.photos/300/300'}?w=300&h=300`} alt={collection.name} />
         </div>
       </span>
       <span

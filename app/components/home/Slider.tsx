@@ -15,7 +15,7 @@ import {
 } from '~/components/ui/carousel';
 import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utils'; // Utility for conditional classes (from shadcn setup)
-import { SlideData } from '~/data/slides'; // Import the data structure and data
+import { SlideData } from '~/data/slides'; // Import the data structure and data // Removed TextReveal import
 
 interface FeatureSliderProps {
   slides: SlideData[];
@@ -34,6 +34,8 @@ export function FeatureSlider({
 }: FeatureSliderProps) {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
+  const [previousSlide, setPreviousSlide] = React.useState<number | null>(null);
+  const [animatingIn, setAnimatingIn] = React.useState<number | null>(null);
   const [isPlaying, setIsPlaying] = React.useState<Record<number, boolean>>({}); // Track video play state per slide
 
   const plugin = React.useRef(
@@ -44,12 +46,37 @@ export function FeatureSlider({
     if (!api) {
       return;
     }
+setCurrent(api.selectedScrollSnap());
 
-    setCurrent(api.selectedScrollSnap());
+// Set initial slide as animating in
+const initialIndex = api.selectedScrollSnap();
+setTimeout(() => {
+  setAnimatingIn(initialIndex);
+}, 50);
+
 
     const handleSelect = () => {
       const newIndex = api.selectedScrollSnap();
+      
+      // If the current slide is changing, mark it as exiting
+      if (current !== newIndex) {
+        setPreviousSlide(current);
+        
+        // Clear the previous slide state after animation completes
+        // Use a timeout slightly longer than the animation duration
+        setTimeout(() => {
+          setPreviousSlide(null);
+        }, 600); // Animation is ~400ms + delays, so 600ms should be enough
+      }
+      
       setCurrent(newIndex);
+
+      // Set new slide as animating in
+      setAnimatingIn(null);
+      setTimeout(() => {
+        setAnimatingIn(newIndex);
+      }, 50);
+      
 
       // Pause all videos when slide changes
       setIsPlaying(prev => {
@@ -102,6 +129,96 @@ export function FeatureSlider({
        // api?.scrollNext();
    };
 
+   // Function to split text into lines and words with staggered animation
+   const renderStaggeredText = (text: string, isAnimating: boolean) => {
+     // Split text by spaces to identify potential line breaks
+     const words = text.split(' ');
+     
+     // Estimate where line breaks might occur (this is an approximation)
+     // For a more accurate approach, we'd need to measure actual text width
+     const wordsPerLine = 4; // Approximate number of words per line
+     const lines: string[] = [];
+     
+     for (let i = 0; i < words.length; i += wordsPerLine) {
+       lines.push(words.slice(i, i + wordsPerLine).join(' '));
+     }
+     
+     return lines.map((line, lineIndex) => {
+       // Add delay for each subsequent line
+       const lineDelay = lineIndex * 80; // Reduced from 200ms to 80ms
+       
+       return (
+         <div key={lineIndex} className="block">
+           {/* Split line into words and animate each word */}
+           {line.split(' ').map((word, wordIndex) => {
+             // Very small delay between words (15ms)
+             const wordDelay = lineDelay + (wordIndex * 15);
+             
+             return (
+               <React.Fragment key={wordIndex}>
+                 <span
+                   className="inline-block"
+                   style={{
+                     opacity: isAnimating ? 1 : 0,
+                     transform: isAnimating ? 'translateY(0)' : 'translateY(20px)',
+                     transition: `opacity 0.5s ease, transform 0.5s ease`,
+                     transitionDelay: `${wordDelay}ms`
+                   }}
+                 >
+                   {word}
+                 </span>
+                 {' '} {/* Add space between words */}
+               </React.Fragment>
+             );
+           })}
+         </div>
+       );
+     });
+   };
+
+   // Function to render text that's exiting (moving upward)
+   const renderExitingText = (text: string, isExiting: boolean) => {
+     // Split text by spaces to identify potential line breaks
+     const words = text.split(' ');
+     
+     // Estimate where line breaks might occur
+     const wordsPerLine = 4;
+     const lines: string[] = [];
+     
+     for (let i = 0; i < words.length; i += wordsPerLine) {
+       lines.push(words.slice(i, i + wordsPerLine).join(' '));
+     }
+     
+     return lines.map((line, lineIndex) => {
+       // Add delay for each subsequent line (reverse order for exit)
+       const lineDelay = (lines.length - lineIndex - 1) * 40; // Shorter delay for exit
+       
+       return (
+         <div key={lineIndex} className="block">
+           {line.split(' ').map((word, wordIndex) => {
+             // Reverse word order for exit animation
+             const wordDelay = lineDelay + ((line.split(' ').length - wordIndex - 1) * 10);
+             
+             return (
+               <React.Fragment key={wordIndex}>
+                 <span
+                   className="inline-block"
+                   style={{
+                     opacity: isExiting ? 0 : 1,
+                     transform: isExiting ? 'translateY(-20px)' : 'translateY(0)', // Move upward when exiting
+                     transition: `opacity 0.4s ease, transform 0.4s ease`,
+                     transitionDelay: `${wordDelay}ms`
+                   }}
+                 >{word}</span>
+                 {' '}
+               </React.Fragment>
+             );
+           })}
+         </div>
+       );
+     });
+   };
+
 
   return (
     <Carousel
@@ -115,10 +232,10 @@ export function FeatureSlider({
       onMouseLeave={plugin.current.reset}
       className="w-full relative" // Ensure carousel takes width and allows absolute positioning
     >
-      <CarouselContent>
+      <CarouselContent className="-ml-4"> {/* Remove padding, keep margin adjustment for spacing */}
         {slides.map((slide, index) => (
-          <CarouselItem key={slide.id}>
-            <Card className="border-none rounded-lg overflow-hidden shadow-none bg-transparent"> {/* Remove card styling */}
+          <CarouselItem key={slide.id} className="pl-4 basis-full md:basis-11/12"> {/* Adjust basis for smaller peek */}
+            <Card className="border-none rounded-2xl overflow-hidden shadow-none bg-transparent"> {/* Adjusted border-radius */}
               <CardContent className="flex aspect-video items-center justify-center p-0 relative"> {/* Use aspect-video, remove padding */}
                 {/* Background Media (Image or Video) */}
                 <div className="absolute inset-0 bg-gray-200"> {/* Fallback bg */}
@@ -164,20 +281,35 @@ export function FeatureSlider({
                 </div>
 
                 {/* Overlay Content */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent flex flex-col justify-end p-8 md:p-12 lg:p-16 z-10">
-                  <h2 className="text-white text-3xl md:text-4xl lg:text-5xl font-bold mb-4 shadow-text">
-                    {slide.title}
-                  </h2>
-                  <Button
-                    asChild
-                    size="lg"
-                    className="mt-4 w-fit rounded-full px-8 py-3 text-lg" // Style like example
-                    variant="secondary" // Use secondary (often white/light) or customize
-                  >
-                    <a href={slide.buttonLink || defaultButtonLink}>
-                      {slide.buttonText || defaultButtonText}
-                    </a>
-                  </Button>
+                <div className="absolute inset-0 custom-gradient-overlay flex flex-col justify-end p-8 md:p-12 lg:p-16 z-10"> {/* Use custom gradient */}
+                  {/* Conditionally render TextReveal and Button only for the active slide */}
+                  <div className={`transition-all duration-500 ${current === index || previousSlide === index ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="overflow-hidden">
+                      {previousSlide === index && current !== index ? (
+                        <h2
+                          aria-label={slide.title}
+                          className="text-white text-3xl md:text-4xl lg:text-5xl font-bold mb-4 shadow-text"
+                        >{renderExitingText(slide.title, true)}</h2>
+                      ) : current === index ? (
+                        <h2
+                          key={`slide-${index}-${current === index}`} // Force remount when slide becomes active
+                          aria-label={slide.title}
+                          className="text-white text-3xl md:text-4xl lg:text-5xl font-bold mb-4 shadow-text"
+                        >{renderStaggeredText(slide.title, animatingIn === index)}</h2>
+                      ) : null}
+                    </div>
+                    
+                    <Button
+                      asChild
+                      size="lg"
+                        className="mt-4 w-fit rounded-full px-8 py-3 text-lg" // Style like example
+                        variant="secondary" // Use secondary (often white/light) or customize
+                      >
+                        <a href={slide.buttonLink || defaultButtonLink}>
+                          {slide.buttonText || defaultButtonText}
+                        </a>
+                      </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -186,8 +318,30 @@ export function FeatureSlider({
       </CarouselContent>
 
       {/* Navigation Arrows */}
-      <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-20 hidden sm:inline-flex" />
-      <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-20 hidden sm:inline-flex" />
+      <button
+        onClick={() => api?.scrollPrev()}
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-transparent hover:bg-transparent transition-colors"
+        aria-label="Previous slide"
+      >
+        <div className="w-6 h-6 text-white">
+          <svg className="w-full h-full" viewBox="0 0 37 24" stroke="white" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 5L3 11.9999M3 11.9999L10 18.9999M3 11.9999H33.5"></path>
+          </svg>
+        </div>
+      </button>
+      
+      <button
+        onClick={() => api?.scrollNext()}
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-transparent hover:bg-transparent transition-colors"
+        aria-label="Next slide"
+      >
+        <div className="w-6 h-6 text-white">
+          <svg className="w-full h-full" viewBox="0 0 37 24" stroke="white" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M26.5 5L33.5 11.9999M33.5 11.9999L26.5 18.9999M33.5 11.9999H3"></path>
+          </svg>
+        </div>
+      </button>
+
 
       {/* Dot Navigation */}
       {showDots && (
@@ -206,7 +360,7 @@ export function FeatureSlider({
         </div>
       )}
 
-      {/* Add custom CSS for text shadow if needed */}
+      {/* Add custom CSS */}
       <style>{`
         .shadow-text {
           text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
@@ -220,6 +374,14 @@ export function FeatureSlider({
           top: 0;
           left: 0;
         }
+        .custom-gradient-overlay {
+          background-image: linear-gradient(rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.8));
+        }
+
+        .transition-transform {
+          transition: transform 0.7s ease-out, opacity 0.7s ease-out;
+        }
+        /* TextReveal Component Styles removed as react-awesome-reveal is used now */
       `}</style>
     </Carousel>
   );
