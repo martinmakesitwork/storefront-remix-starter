@@ -1,0 +1,160 @@
+/* Reset/Base for component elements */
+.featured-grid-section-wrapper div,
+.featured-grid-section-wrapper a,
+.featured-grid-section-wrapper img,
+.featured-grid-section-wrapper span {
+  box-sizing: border-box;
+}
+
+.featured-grid-section-container {
+  padding-block: 40px;
+  background-color: rgb(255, 255, 255); /* Assuming white background for the section */
+  color: rgb(23, 23, 23);
+}
+
+.featured-grid-section-title {
+  text-align: left; /* As per "Collections" title image */
+  margin-bottom: 40px;
+  font-size: 4rem; /* Large title */
+  font-weight: 800; /* Bold */
+  color: rgb(23, 23, 23);
+  font-family: 'Inter, sans-serif'; /* Ensure Inter is loaded */
+  letter-spacing: -1.5px;
+  padding-left: 20px; /* Align with grid padding */
+}
+
+/* New Grid Item Card Styling */
+.grid-item-card-new {
+  background-color: rgb(230, 230, 230); /* Light grey background of card */
+  border-radius: 20px; /* Rounded corners */
+  overflow: hidden; /* Crucial for child elements and swoosh */
+  position: relative; /* For absolute positioning of children */
+  aspect-ratio: 4 / 3; /* Or set a fixed height if preferred */
+  /* min-height: 300px; /* Example min-height */
+}
+
+.grid-item-link-new {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: relative; /* Context for absolute children */
+  text-decoration: none;
+  color: inherit;
+}
+
+.grid-item-image-container-new {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.grid-item-image-new {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Cover the area */
+  object-position: center;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.grid-item-link-new:hover .grid-item-image-new {
+  transform: scale(1.05);
+}
+
+.grid-item-image-overlay-new {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.25); /* Semi-transparent dark overlay on image */
+  z-index: 1; /* Above image, below text/swoosh */
+}
+
+
+/* Vertical Text Styling */
+.vertical-text-label {
+  position: absolute;
+  left: 0px; /* Adjust for padding from edge */
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: left center; /* Rotate around the left-center point */
+  white-space: nowrap; /* Prevent text from wrapping */
+  color: white;
+  font-size: 1.3rem; /* Adjust size as needed */
+  font-weight: 600;
+  letter-spacing: 1.5px; /* Spacing between letters */
+  text-transform: uppercase; /* If desired */
+  z-index: 3; /* Above overlay and swoosh */
+  padding: 0 20px; /* Give it some space from the card edge after rotation */
+  /* Adjust left/padding for precise positioning */
+}
+
+/* Diagonal Swoosh Styling */
+.diagonal-swoosh {
+  position: absolute;
+  background-color: white;
+  z-index: 2; /* Above overlay, below text */
+
+  /* Adjust these values to match the visual */
+  width: 45px; /* Thickness of the swoosh */
+  height: 150%; /* Make it long enough to span diagonally, will be clipped by overflow:hidden */
+  top: 50%; /* Start from center */
+  left: 55%; /* Start from further right */
+  transform: translate(-50%, -50%) rotate(-30deg); /* Center it, then rotate */
+  border-radius: 25px; /* Rounded ends for the swoosh */
+  opacity: 0.9; /* Slight transparency if desired */
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 992px) { /* Example breakpoint */
+  .featured-grid-section-title {
+    font-size: 3rem;
+  }
+  .vertical-text-label {
+    font-size: 1.1rem;
+    padding: 0 15px;
+  }
+  .diagonal-swoosh {
+    width: 35px;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-35deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .featured-grid-section-wrapper {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    row-gap: 15px;
+    column-gap: 15px;
+    padding: 10px;
+  }
+  .featured-grid-section-title {
+    font-size: 2.5rem;
+    margin-bottom: 25px;
+    padding-left: 10px;
+  }
+  .grid-item-card-new {
+    border-radius: 15px;
+  }
+  .vertical-text-label {
+    font-size: 1rem;
+    letter-spacing: 1px;
+    padding: 0 10px; /* Less padding on smaller cards */
+  }
+  .diagonal-swoosh {
+    width: 30px; /* Thinner swoosh */
+    left: 45%; /* Adjust position */
+    transform: translate(-50%, -50%) rotate(-40deg); /* Steeper angle maybe */
+  }
+}
+
+@media (max-width: 480px) {
+    .featured-grid-section-wrapper {
+        grid-template-columns: 1fr; /* Single column on very small screens */
+    }
+    .vertical-text-label {
+        font-size: 0.9rem;
+    }
+    .diagonal-swoosh {
+      width: 25px;
+    }
+}

@@ -14,7 +14,7 @@ import {
   MetaFunction,
 } from '@remix-run/react';
 import stylesheet from './tailwind.css';
-import themeStylesheet from './styles/theme.css'; // Import theme CSS
+import appStylesheet from './styles/app.css';
 import { Header } from './components/header/Header';
 import {
   DataFunctionArgs,
@@ -32,6 +32,9 @@ import { useActiveOrder } from '~/utils/use-active-order';
 import { useChangeLanguage } from 'remix-i18next';
 import { useTranslation } from 'react-i18next';
 import { getI18NextServer } from '~/i18next.server';
+import { MegaMenuData } from '~/types';
+import { transformVendureCollectionsToMegaMenu } from '~/lib/utils';
+import { VendureCollection } from '~/types';
 
 export const meta: MetaFunction = () => {
   return [{ title: APP_META_TITLE }, { description: APP_META_DESCRIPTION }];
@@ -39,6 +42,7 @@ export const meta: MetaFunction = () => {
 
 export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: stylesheet },
+  { rel: 'stylesheet', href: appStylesheet },
   ...(cssBundleHref ? [{ rel: 'stylesheet', href: cssBundleHref }] : []),
 ];
 
@@ -71,14 +75,28 @@ export type RootLoaderData = {
   activeChannel: Awaited<ReturnType<typeof activeChannel>>;
   collections: Awaited<ReturnType<typeof getCollections>>;
   locale: string;
+  marketplaceMenuData: MegaMenuData | undefined;
+  connectMenuData: MegaMenuData | undefined;
 };
 
 export async function loader({ request, params, context }: DataFunctionArgs) {
-  const collections = await getCollections(request, { take: 20 });
-  const topLevelCollections = collections.filter(
-    (collection) => collection.parent?.name === '__root_collection__',
+  const allCollections: VendureCollection[] = await getCollections(request, { take: 100 });
+
+  const topLevelCollections = allCollections.filter(
+    (collection) => collection.parent?.name === '__root_collection_',
   );
+
   const activeCustomer = await getActiveCustomer({ request });
+
+  const marketplaceMenuData = transformVendureCollectionsToMegaMenu(
+    allCollections,
+    "Marketplace"
+  );
+  const connectMenuData = transformVendureCollectionsToMegaMenu(
+    allCollections,
+    "Connect"
+  );
+
   const locale = await getI18NextServer().then((i18next) =>
     i18next.getLocale(request),
   );
@@ -87,6 +105,8 @@ export async function loader({ request, params, context }: DataFunctionArgs) {
     activeChannel: await activeChannel({ request }),
     collections: topLevelCollections,
     locale,
+    marketplaceMenuData,
+    connectMenuData,
   };
 
   return json(loaderData, { headers: activeCustomer._headers });
@@ -95,7 +115,7 @@ export async function loader({ request, params, context }: DataFunctionArgs) {
 export default function App() {
   const [open, setOpen] = useState(false);
   const loaderData = useLoaderData<RootLoaderData>();
-  const { collections } = loaderData;
+  const { collections, marketplaceMenuData, connectMenuData } = loaderData;
   const { locale } = useLoaderData<typeof loader>();
   const { i18n } = useTranslation();
   const {
@@ -108,11 +128,10 @@ export default function App() {
 
   useChangeLanguage(locale);
 
+
   useEffect(() => {
-    // When the loader has run, this implies we should refresh the contents
-    // of the activeOrder as the user may have signed in or out.
     refresh();
-  }, [loaderData]);
+  }, [loaderData, ]);
 
   return (
     <html lang={locale} dir={i18n.dir()} id="app">
@@ -127,6 +146,8 @@ export default function App() {
         <Header
           onCartIconClick={() => setOpen(!open)}
           cartQuantity={activeOrder?.totalQuantity ?? 0}
+          marketplaceMenuData={marketplaceMenuData}
+          connectMenuData={connectMenuData}
         />
         <main className="">
           <Outlet

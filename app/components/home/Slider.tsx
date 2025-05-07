@@ -1,21 +1,19 @@
 // src/components/FeatureSlider.tsx
 import * as React from 'react';
 import Autoplay from 'embla-carousel-autoplay';
-import ReactPlayerImport from 'react-player/lazy/index.js'; // Lazy load for better performance
+import ReactPlayerImport from 'react-player/lazy/index.js';
 const ReactPlayer = (ReactPlayerImport as any).default || ReactPlayerImport;
 
-import { Card, CardContent } from '~/components/ui/card'; // Using Card for structure
+import { Card, CardContent } from '~/components/ui/card';
 import {
   Carousel,
   CarouselApi,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from '~/components/ui/carousel';
 import { Button } from '~/components/ui/button';
-import { cn } from '~/lib/utils'; // Utility for conditional classes (from shadcn setup)
-import { SlideData } from '~/data/slides'; // Import the data structure and data // Removed TextReveal import
+import { cn } from '~/lib/utils';
+import { SlideData } from '~/data/local-slides'; // Ensure this path is correct
 
 interface FeatureSliderProps {
   slides: SlideData[];
@@ -23,366 +21,420 @@ interface FeatureSliderProps {
   showDots?: boolean;
   defaultButtonText?: string;
   defaultButtonLink?: string;
+  pageWidth?: string;
 }
 
-export function FeatureSlider({
+// Client-only wrapper component
+export function FeatureSlider(props: FeatureSliderProps) {
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className="w-full h-[60vh] bg-gray-100 flex items-center justify-center" aria-label="Loading slider...">
+        <div className="text-gray-500">
+          {/* Simple loading text or spinner */}
+          Loading slider...
+        </div>
+      </div>
+    );
+  }
+
+  return <ClientOnlyFeatureSlider {...props} />;
+}
+
+// The actual implementation, only rendered on the client
+
+// The actual implementation, only rendered on the client
+function ClientOnlyFeatureSlider({
   slides,
-  autoplayDelay = 5000, // Default autoplay delay 5 seconds
+  autoplayDelay = 5000,
   showDots = true,
   defaultButtonText = 'Shop Now',
   defaultButtonLink = '#',
+  pageWidth = '1900px',
 }: FeatureSliderProps) {
+  // ... (useState, useRef, useEffect hooks, helper functions - assume these are correct from previous version)
+  // For brevity, I'm keeping the core logic from the last correct version.
   const [api, setApi] = React.useState<CarouselApi>();
-  const [current, setCurrent] = React.useState(0);
-  const [previousSlide, setPreviousSlide] = React.useState<number | null>(null);
-  const [animatingIn, setAnimatingIn] = React.useState<number | null>(null);
-  const [isPlaying, setIsPlaying] = React.useState<Record<number, boolean>>({}); // Track video play state per slide
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const [previousTextSlide, setPreviousTextSlide] = React.useState<SlideData | null>(null);
+  const [isAnimatingIn, setIsAnimatingIn] = React.useState(false);
+  const [isPlaying, setIsPlaying] = React.useState<Record<number, boolean>>({});
+  const [isMounted, setIsMounted] = React.useState(false);
 
   const plugin = React.useRef(
     Autoplay({ delay: autoplayDelay, stopOnInteraction: true, stopOnMouseEnter: true })
   );
 
-  React.useEffect(() => {
-    if (!api) {
-      return;
+  const staticCss = `
+    .feature-slider-container {
+      --page-width-val-calc: ${pageWidth};
+      --sp-12-calc: 3rem; /* Or your desired base padding */
+      /* Assuming scrollbar width is negligible or handled by body overflow for full-width sliders */
+      --scrollbar-width-calc: 0px;
+
+      --calculated-page-padding: max(
+        var(--sp-12-calc),
+        calc(50vw - (var(--scrollbar-width-calc) / 2) - (var(--page-width-val-calc) / 2))
+      );
+      
+      --calculated-page-container-width: min(
+        var(--page-width-val-calc),
+        calc(100vw - (var(--calculated-page-padding) * 2) - var(--scrollbar-width-calc))
+      );
     }
-setCurrent(api.selectedScrollSnap());
+    .shadow-text { text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.7); }
+    .custom-gradient-overlay {
+      background-image: linear-gradient(to top, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.4) 50%, transparent 100%);
+    }
+    
+    /* Custom button styles */
+    .button {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 1.5rem; /* Increased top/bottom padding */
+      border-radius: 9999px;
+      font-weight: 500;
+      text-decoration: none;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: #000;
+      background-color: white;
+    }
+    
+    .button--primary {
+      background-color: white;
+      color: #000;
+    }
+    
+    .button--md {
+      font-size: 0.875rem;
+      padding: 0.875rem 1.5rem; /* Increased top/bottom padding */
+    }
+    
+    .button--blur {
+      backdrop-filter: blur(4px);
+    }
+    
+    .button--fixed {
+      min-width: 120px;
+    }
+    
+    .btn-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000; /* Dark fill color */
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .button:hover {
+      color: white; /* Text turns white on hover */
+    }
+    
+    .button:hover .btn-fill {
+      transform: translateY(0);
+    }
+    
+    .btn-text {
+      position: relative;
+      z-index: 1;
+      transition: color 0.3s ease;
+    }
+  `;
+  const dynamicCarouselStyles = {
+    '--page-width-val': pageWidth,
+    '--sp-12': '3rem',
+    '--scrollbar-width': '0px', 
+  } as React.CSSProperties;
 
-// Set initial slide as animating in
-const initialIndex = api.selectedScrollSnap();
-setTimeout(() => {
-  setAnimatingIn(initialIndex);
-}, 50);
-
-
-    const handleSelect = () => {
-      const newIndex = api.selectedScrollSnap();
-      
-      // If the current slide is changing, mark it as exiting
-      if (current !== newIndex) {
-        setPreviousSlide(current);
-        
-        // Clear the previous slide state after animation completes
-        // Use a timeout slightly longer than the animation duration
-        setTimeout(() => {
-          setPreviousSlide(null);
-        }, 600); // Animation is ~400ms + delays, so 600ms should be enough
-      }
-      
-      setCurrent(newIndex);
-
-      // Set new slide as animating in
-      setAnimatingIn(null);
-      setTimeout(() => {
-        setAnimatingIn(newIndex);
-      }, 50);
-      
-
-      // Pause all videos when slide changes
-      setIsPlaying(prev => {
-          const newState = { ...prev };
-          Object.keys(newState).forEach(key => {
-              newState[Number(key)] = false;
-          });
-          return newState;
+  // Minimal useEffects for brevity
+  // Handle client-side mounting and debug slides data
+  React.useEffect(() => {
+    setIsMounted(true);
+    
+    // Debug slides data
+    console.log('Slides data in ClientOnlyFeatureSlider:', slides);
+    if (!slides || slides.length === 0) {
+      console.error('No slides data available!');
+    } else {
+      slides.forEach((slide, index) => {
+        console.log(`Slide ${index}:`, slide);
       });
+    }
+  }, [slides]);
 
-      // Optionally: auto-play video when its slide becomes active
-      const currentSlide = slides[newIndex];
-       if (currentSlide.type === 'video') {
-           // Small delay to ensure transition is smooth before playing
-           setTimeout(() => {
-               setIsPlaying(prev => ({ ...prev, [currentSlide.id]: true }));
-           }, 150); // Adjust delay as needed
-       }
+  // Initialize slider and start animations after mounting
+  React.useEffect(() => {
+    if (!api || !isMounted) return;
+    
+    const initialIndex = api.selectedScrollSnap();
+    setActiveIndex(initialIndex);
+    
+    // Only animate after hydration is complete
+    const timer = setTimeout(() => {
+      setIsAnimatingIn(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [api, isMounted]);
+  React.useEffect(() => {
+    if (!api || !isMounted || !slides || slides.length === 0) return;
+    const handleSelect = () => {
+      const newIndex = api.selectedScrollSnap(); if (activeIndex === newIndex) return;
+      setIsAnimatingIn(false); setPreviousTextSlide(slides[activeIndex]);
+      const t1 = setTimeout(() => {
+        setActiveIndex(newIndex);
+        const t2 = setTimeout(() => setIsAnimatingIn(true), 50);
+        const t3 = setTimeout(() => setPreviousTextSlide(null), 700);
+        setIsPlaying({}); const csd = slides[newIndex]; let vt: NodeJS.Timeout; if (csd?.type === 'video') { vt = setTimeout(() => setIsPlaying(p => ({...p, [csd.id]: true})), 250); }
+        return () => { clearTimeout(t2); clearTimeout(t3); if (vt) clearTimeout(vt); };
+      }, 200);
+      return () => clearTimeout(t1);
     };
+    api.on('select', handleSelect); api.on('settle', handleSelect); api.on('pointerDown', () => plugin.current.stop());
+    return () => { api.off('select', handleSelect); api.off('settle', handleSelect); };
+  }, [api, slides, activeIndex, isMounted]);
 
-    api.on('select', handleSelect);
-     // Reset play state when autoplay resumes after hover/interaction
-     api.on('settle', handleSelect); // Ensure state is correct after scroll settles
-      api.on('pointerDown', () => plugin.current.stop()); // Stop autoplay on interaction
+  const handleDotClick = React.useCallback((index: number) => api?.scrollTo(index), [api]);
+  const handlePlayPause = (slideId: number, play: boolean) => {setIsPlaying(p => ({...p, [slideId]: play})); if(play) plugin.current.stop();};
+  const handleVideoEnded = (slideId: number) => setIsPlaying(p => ({...p, [slideId]: false}));
 
-    return () => {
-      api.off('select', handleSelect);
-       api.off('settle', handleSelect);
-    };
-  }, [api, slides]);
+  // Animation for incoming title words (from top, moving down)
+  const renderIncomingTitleWords = (text: string, isVisible: boolean) => {
+    const words = text.split(' ');
+    
+    // During server rendering or before hydration, render without animations
+    if (!isMounted) {
+      return words.map((word, index) => (
+        <React.Fragment key={index}>
+          <span className="inline-block">{word}</span>{' '}
+        </React.Fragment>
+      ));
+    }
+    
+    // After hydration, apply animations
+    return words.map((word, index) => (
+      <React.Fragment key={index}>
+        <span
+          className="inline-block"
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transform: isVisible ? 'translateY(0)' : 'translateY(-25px)',
+            transition: `opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)`,
+            transitionDelay: `${index * 40}ms`
+          }}
+        >
+          {word}
+        </span>{' '}
+      </React.Fragment>
+    ));
+  };
 
-  const handleDotClick = React.useCallback(
-    (index: number) => {
-      api?.scrollTo(index);
-    },
-    [api]
-  );
+  // Animation for outgoing title words (moving down and out)
+  const renderOutgoingTitleWords = (text: string) => {
+    const words = text.split(' ');
+    
+    // After hydration, apply animations
+    return words.map((word, index) => (
+      <React.Fragment key={index}>
+        <span
+          className="inline-block"
+          style={{
+            opacity: 0,
+            transform: 'translateY(25px)',
+            transition: `opacity 0.3s ease-in, transform 0.4s ease-in-out`,
+            transitionDelay: `${index * 20}ms`
+          }}
+        >
+          {word}
+        </span>{' '}
+      </React.Fragment>
+    ));
+  };
+  const currentTextSlideData = slides && slides.length > activeIndex ? slides[activeIndex] : null;
+  const buttonEntryDelay = currentTextSlideData ? (currentTextSlideData.title.split(' ').length || 0) * 40 + 100 : 200;
+  const buttonExitDelay = 50;
 
-   const handlePlayPause = (slideId: number, play: boolean) => {
-       setIsPlaying(prev => ({ ...prev, [slideId]: play }));
-       // If user manually interacts, stop the carousel autoplay
-       if (!play) { // If pausing
-           plugin.current.stop();
-       }
-   };
-
-   const handleVideoEnded = (slideId: number) => {
-       setIsPlaying(prev => ({ ...prev, [slideId]: false }));
-       // Optionally move to the next slide when video ends
-       // api?.scrollNext();
-   };
-
-   // Function to split text into lines and words with staggered animation
-   const renderStaggeredText = (text: string, isAnimating: boolean) => {
-     // Split text by spaces to identify potential line breaks
-     const words = text.split(' ');
-     
-     // Estimate where line breaks might occur (this is an approximation)
-     // For a more accurate approach, we'd need to measure actual text width
-     const wordsPerLine = 4; // Approximate number of words per line
-     const lines: string[] = [];
-     
-     for (let i = 0; i < words.length; i += wordsPerLine) {
-       lines.push(words.slice(i, i + wordsPerLine).join(' '));
-     }
-     
-     return lines.map((line, lineIndex) => {
-       // Add delay for each subsequent line
-       const lineDelay = lineIndex * 80; // Reduced from 200ms to 80ms
-       
-       return (
-         <div key={lineIndex} className="block">
-           {/* Split line into words and animate each word */}
-           {line.split(' ').map((word, wordIndex) => {
-             // Very small delay between words (15ms)
-             const wordDelay = lineDelay + (wordIndex * 15);
-             
-             return (
-               <React.Fragment key={wordIndex}>
-                 <span
-                   className="inline-block"
-                   style={{
-                     opacity: isAnimating ? 1 : 0,
-                     transform: isAnimating ? 'translateY(0)' : 'translateY(20px)',
-                     transition: `opacity 0.5s ease, transform 0.5s ease`,
-                     transitionDelay: `${wordDelay}ms`
-                   }}
-                 >
-                   {word}
-                 </span>
-                 {' '} {/* Add space between words */}
-               </React.Fragment>
-             );
-           })}
-         </div>
-       );
-     });
-   };
-
-   // Function to render text that's exiting (moving upward)
-   const renderExitingText = (text: string, isExiting: boolean) => {
-     // Split text by spaces to identify potential line breaks
-     const words = text.split(' ');
-     
-     // Estimate where line breaks might occur
-     const wordsPerLine = 4;
-     const lines: string[] = [];
-     
-     for (let i = 0; i < words.length; i += wordsPerLine) {
-       lines.push(words.slice(i, i + wordsPerLine).join(' '));
-     }
-     
-     return lines.map((line, lineIndex) => {
-       // Add delay for each subsequent line (reverse order for exit)
-       const lineDelay = (lines.length - lineIndex - 1) * 40; // Shorter delay for exit
-       
-       return (
-         <div key={lineIndex} className="block">
-           {line.split(' ').map((word, wordIndex) => {
-             // Reverse word order for exit animation
-             const wordDelay = lineDelay + ((line.split(' ').length - wordIndex - 1) * 10);
-             
-             return (
-               <React.Fragment key={wordIndex}>
-                 <span
-                   className="inline-block"
-                   style={{
-                     opacity: isExiting ? 0 : 1,
-                     transform: isExiting ? 'translateY(-20px)' : 'translateY(0)', // Move upward when exiting
-                     transition: `opacity 0.4s ease, transform 0.4s ease`,
-                     transitionDelay: `${wordDelay}ms`
-                   }}
-                 >{word}</span>
-                 {' '}
-               </React.Fragment>
-             );
-           })}
-         </div>
-       );
-     });
-   };
-
+  if (!isMounted || !slides || slides.length === 0) {
+    return ( <div className="w-full h-[60vh] bg-gray-200 flex items-center justify-center text-gray-500"> {isMounted && (!slides || slides.length === 0) ? "Error: No slides data." : "Initializing slider..."} </div> );
+  }
 
   return (
-    <Carousel
-      setApi={setApi}
-      plugins={[plugin.current]}
-      opts={{
-        loop: true,
-      }}
-      // Pause autoplay when mouse enters the carousel container
-      onMouseEnter={plugin.current.stop}
-      onMouseLeave={plugin.current.reset}
-      className="w-full relative" // Ensure carousel takes width and allows absolute positioning
-    >
-      <CarouselContent className="-ml-4"> {/* Remove padding, keep margin adjustment for spacing */}
-        {slides.map((slide, index) => (
-          <CarouselItem key={slide.id} className="pl-4 basis-full md:basis-11/12"> {/* Adjust basis for smaller peek */}
-            <Card className="border-none rounded-2xl overflow-hidden shadow-none bg-transparent"> {/* Adjusted border-radius */}
-              <CardContent className="flex aspect-video items-center justify-center p-0 relative"> {/* Use aspect-video, remove padding */}
-                {/* Background Media (Image or Video) */}
-                <div className="absolute inset-0 bg-gray-200"> {/* Fallback bg */}
-                  {slide.type === 'image' ? (
-                    <img
-                      src={slide.src}
-                      alt={slide.alt || slide.title}
-                      className="w-full h-full object-cover" // Make image cover the area
-                    />
-                  ) : (
-                    <div className="w-full h-full player-wrapper">
-                     <ReactPlayer
-                        url={slide.src}
-                        playing={isPlaying[slide.id] || false}
-                        controls={true} // Show native controls (like YouTube)
-                        width="100%"
-                        height="100%"
-                        className="react-player"
-                        onPlay={() => handlePlayPause(slide.id, true)}
-                        onPause={() => handlePlayPause(slide.id, false)}
-                        onEnded={() => handleVideoEnded(slide.id)}
-                        // Muted might be required for autoplay in some browsers
-                        // muted={true}
-                        config={{
-                           youtube: {
-                             playerVars: {
-                               showinfo: 0, // Hide title bar
-                                modestbranding: 1, // Less prominent YouTube logo
-                                controls: 1, // Show controls (can be 0 to hide)
-                                // Disable related videos - might not work reliably
-                                rel: 0,
-                             }
-                           },
-                           file: {
-                             attributes: {
-                               controlsList: 'nodownload' // Example: disable download
-                             }
-                           }
-                         }}
+    <>
+      <style>{staticCss}</style>
+      <Carousel
+        setApi={setApi}
+        plugins={[plugin.current]}
+        opts={{ loop: true, active: slides.length > 1 }}
+        onMouseEnter={plugin.current.stop}
+        onMouseLeave={plugin.current.reset}
+        className="w-full relative h-[60vh] min-h-[600px] bg-transparent feature-slider-container"
+        style={dynamicCarouselStyles}
+      >
+        <CarouselContent className="-ml-4 h-[60vh] min-h-[600px]"> {/* The -ml-4 and pl-4 on item create space for bg to show */}
+          {slides.map((slide, index) => (
+            <CarouselItem key={slide.id || index} className="pl-4" style={{ flexBasis: 'var(--calculated-page-container-width)' }}>
+              <Card className="border-none rounded-2xl overflow-hidden shadow-none bg-transparent h-full w-full">
+                <CardContent className="p-0 relative w-full h-full overflow-hidden">
+                  {/* Colored background based on slide ID - always visible */}
+                  <div
+                    className="absolute inset-0 z-0"
+                    style={{
+                      backgroundColor: `hsl(${(slide.id || index) * 60}, 70%, 50%)`,
+                    }}
+                  />
+                  
+                  {/* Main content container */}
+                  <div className="absolute inset-0 z-10">
+                    {slide.type === 'image' && slide.src ? (
+                      <img
+                        src={slide.src}
+                        alt={slide.alt || slide.title || `Slide ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        style={{ mixBlendMode: 'multiply' }}
+                        onError={(e) => {
+                          console.error(`Failed to load image: ${slide.src}`);
+                          e.currentTarget.style.opacity = '0.3';
+                        }}
+                        onLoad={() => console.log(`Successfully loaded image: ${slide.src}`)}
                       />
-                    </div>
+                    ) : slide.type === 'video' && slide.src ? (
+                      <div className="w-full h-full">
+                        <ReactPlayer
+                          url={slide.src}
+                          playing={isPlaying[slide.id] || false}
+                          controls={true}
+                          width="100%"
+                          height="100%"
+                          className="[&_video]:!object-cover"
+                          onPlay={() => handlePlayPause(slide.id, true)}
+                          onPause={() => handlePlayPause(slide.id, false)}
+                          onEnded={() => handleVideoEnded(slide.id)}
+                          onError={(e: Error) => console.error(`ReactPlayer Error for src: ${slide.src}:`, e)}
+                          config={{
+                            youtube: { playerVars: { showinfo: 0, modestbranding: 1, controls: 1, rel: 0 } },
+                            file: {
+                              attributes: {
+                                style: { width: '100%', height: '100%', objectFit: 'cover' },
+                                controlsList: 'nodownload'
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white bg-black/30">
+                        Invalid slide
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Gradient overlay on top of everything */}
+                  <div className="absolute inset-0 custom-gradient-overlay z-20" />
+                </CardContent>
+              </Card>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        {/* Text, Button, and Navigation Overlay */}
+        <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
+          <div
+            className="flex flex-col pointer-events-auto py-8 px-20 md:py-10 md:px-26 lg:py-12 lg:px-36"
+            style={{
+              maxWidth: 'var(--calculated-page-container-width)',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}
+          >
+            {/* Row 1: Title and Shop Button */}
+            <div className="flex justify-between items-end w-full mb-6 md:mb-8">
+              {/* Left Side: Title */}
+              {/* Let title grow, but ensure padding to button. Button will not shrink. */}
+              <div className="flex-grow min-w-0 pr-6 md:pr-8 max-w-[70%]"> {/* Added max-w-[70%] to limit width */}
+                <div className="relative min-h-[80px] md:min-h-[120px] lg:min-h-[150px]">
+                  {previousTextSlide && (
+                    <h2 key={`title-exit-${previousTextSlide.id}`} aria-hidden="true" className="absolute inset-x-0 bottom-0 w-full text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-snug shadow-text">
+                      {renderOutgoingTitleWords(previousTextSlide.title)}
+                    </h2>
+                  )}
+                  {currentTextSlideData && (
+                    <h2 key={`title-current-${currentTextSlideData.id}`} aria-label={currentTextSlideData.title} className="absolute inset-x-0 bottom-0 w-full text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-snug shadow-text">
+                      {renderIncomingTitleWords(currentTextSlideData.title, isAnimatingIn)}
+                    </h2>
                   )}
                 </div>
+              </div>
 
-                {/* Overlay Content */}
-                <div className="absolute inset-0 custom-gradient-overlay flex flex-col justify-end p-8 md:p-12 lg:p-16 z-10"> {/* Use custom gradient */}
-                  {/* Conditionally render TextReveal and Button only for the active slide */}
-                  <div className={`transition-all duration-500 ${current === index || previousSlide === index ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="overflow-hidden">
-                      {previousSlide === index && current !== index ? (
-                        <h2
-                          aria-label={slide.title}
-                          className="text-white text-3xl md:text-4xl lg:text-5xl font-bold mb-4 shadow-text"
-                        >{renderExitingText(slide.title, true)}</h2>
-                      ) : current === index ? (
-                        <h2
-                          key={`slide-${index}-${current === index}`} // Force remount when slide becomes active
-                          aria-label={slide.title}
-                          className="text-white text-3xl md:text-4xl lg:text-5xl font-bold mb-4 shadow-text"
-                        >{renderStaggeredText(slide.title, animatingIn === index)}</h2>
-                      ) : null}
-                    </div>
-                    
-                    <Button
-                      asChild
-                      size="lg"
-                        className="mt-4 w-fit rounded-full px-8 py-3 text-lg" // Style like example
-                        variant="secondary" // Use secondary (often white/light) or customize
-                      >
-                        <a href={slide.buttonLink || defaultButtonLink}>
-                          {slide.buttonText || defaultButtonText}
+              {/* Right Side: Button */}
+              {currentTextSlideData && (currentTextSlideData.buttonText || defaultButtonText) && (
+                <div className="flex-shrink-0"> {/* Prevents button from shrinking */}
+                  <div className="relative h-10 md:h-12">
+                    {/* ... (Exiting Button JSX) ... */}
+                     {previousTextSlide && (previousTextSlide.buttonText || defaultButtonText) && (
+                      <div key={`button-exit-${previousTextSlide.id}`} aria-hidden="true" className="absolute inset-0 flex justify-end items-center" style={{ opacity: 0, transform: 'translateY(15px)', transition: `opacity 0.3s ease-in, transform 0.4s ease-in-out`, transitionDelay: `${buttonExitDelay}ms` }}>
+                        <a
+                          href={previousTextSlide.buttonLink || defaultButtonLink}
+                          className="button button--primary button--md button--blur button--fixed pointer-events-auto"
+                        >
+                          <span className="btn-fill" data-fill=""></span>
+                          <span className="btn-text">{previousTextSlide.buttonText || defaultButtonText}</span>
                         </a>
-                      </Button>
+                      </div>
+                    )}
+                    {/* ... (Current/Incoming Button JSX) ... */}
+                    <div key={`button-current-${currentTextSlideData.id}`} className="absolute inset-0 flex justify-end items-center" style={{ opacity: isAnimatingIn ? 1 : 0, transform: isAnimatingIn ? 'translateY(0)' : 'translateY(-15px)', transition: `opacity 0.4s ease-out, transform 0.5s ease-out`, transitionDelay: isAnimatingIn ? `${buttonEntryDelay}ms` : '0ms' }}>
+                      <a
+                        href={currentTextSlideData.buttonLink || defaultButtonLink}
+                        className="button button--primary button--md button--blur button--fixed pointer-events-auto"
+                      >
+                        <span className="btn-fill" data-fill=""></span>
+                        <span className="btn-text">{currentTextSlideData.buttonText || defaultButtonText}</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </CarouselItem>
-        ))}
-      </CarouselContent>
-
-      {/* Navigation Arrows */}
-      <button
-        onClick={() => api?.scrollPrev()}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-transparent hover:bg-transparent transition-colors"
-        aria-label="Previous slide"
-      >
-        <div className="w-6 h-6 text-white">
-          <svg className="w-full h-full" viewBox="0 0 37 24" stroke="white" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 5L3 11.9999M3 11.9999L10 18.9999M3 11.9999H33.5"></path>
-          </svg>
-        </div>
-      </button>
-      
-      <button
-        onClick={() => api?.scrollNext()}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-transparent hover:bg-transparent transition-colors"
-        aria-label="Next slide"
-      >
-        <div className="w-6 h-6 text-white">
-          <svg className="w-full h-full" viewBox="0 0 37 24" stroke="white" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M26.5 5L33.5 11.9999M33.5 11.9999L26.5 18.9999M33.5 11.9999H3"></path>
-          </svg>
-        </div>
-      </button>
-
-
-      {/* Dot Navigation */}
-      {showDots && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
-          {slides.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => handleDotClick(index)}
-              aria-label={`Go to slide ${index + 1}`}
-              className={cn(
-                'h-2 w-2 rounded-full transition-colors duration-200',
-                current === index ? 'bg-white scale-125' : 'bg-white/50 hover:bg-white/75'
               )}
-            />
-          ))}
+            </div>
+
+            {/* Horizontal divider line */}
+            <hr className="w-full border-t border-gray-300/30 my-4" />
+
+            {/* Row 2: Navigation Arrows and Dots */}
+            {slides.length > 1 && (
+              <div className="flex justify-between items-center w-full mt-4">
+                <button onClick={() => api?.scrollPrev()} className="p-2 text-white hover:opacity-75 transition-opacity" aria-label="Previous slide">
+                  <div className="w-8 h-8 md:w-10 md:h-10">
+                    <svg className="w-full h-full" viewBox="0 0 37 24" stroke="currentColor" fill="none" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 5L3 11.9999M3 11.9999L10 18.9999M3 11.9999H33.5"></path></svg>
+                  </div>
+                </button>
+                {showDots && (
+                  <div className="flex space-x-2.5">
+                    {slides.map((_, index) => (
+                      <button key={index} onClick={() => handleDotClick(index)} aria-label={`Go to slide ${index + 1}`} className={cn('h-3 w-3 rounded-full transition-all duration-300 ease-out focus:outline-none', activeIndex === index ? 'bg-white scale-110' : 'bg-transparent border-2 border-white/60 hover:border-white focus:border-white')}/>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => api?.scrollNext()} className="p-2 text-white hover:opacity-75 transition-opacity" aria-label="Next slide">
+                  <div className="w-8 h-8 md:w-10 md:h-10">
+                    <svg className="w-full h-full" viewBox="0 0 37 24" stroke="currentColor" fill="none" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M26.5 5L33.5 11.9999M33.5 11.9999L26.5 18.9999M33.5 11.9999H3"></path></svg>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Add custom CSS */}
-      <style>{`
-        .shadow-text {
-          text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
-        }
-        .player-wrapper {
-          position: relative;
-          padding-top: 56.25% /* Player ratio: 16:9 */;
-        }
-        .react-player {
-          position: absolute;
-          top: 0;
-          left: 0;
-        }
-        .custom-gradient-overlay {
-          background-image: linear-gradient(rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.8));
-        }
-
-        .transition-transform {
-          transition: transform 0.7s ease-out, opacity 0.7s ease-out;
-        }
-        /* TextReveal Component Styles removed as react-awesome-reveal is used now */
-      `}</style>
-    </Carousel>
+      </Carousel>
+    </>
   );
 }

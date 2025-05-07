@@ -49,10 +49,11 @@ export default {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
-  			}
+  			},
   		},
   		animation: {
-  			dropIn: 'dropIn 0.2s ease-out'
+  			dropIn: 'dropIn 0.2s ease-out',
+			'content-enter': 'slideInFromRightAndFade 0.4s ease-out forwards'
   		},
   		keyframes: {
   			dropIn: {
@@ -62,7 +63,11 @@ export default {
   				'100%': {
   					transform: 'translateY(0)'
   				}
-  			}
+  			},
+			slideInFromRightAndFade: {
+				'0%': { opacity: '0', transform: 'translateX(40px)' },
+				'70%, 100%': { opacity: '1', transform: 'translateX(0)' },
+			},
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

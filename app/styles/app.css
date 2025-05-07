@@ -33,6 +33,13 @@
 5. Use the user's configured `sans` font-feature-settings by default.
 */
 
+:root {
+  --scrollbar-width: 15px;
+  --page-width: 1900px;
+  --sp-12: 3rem;
+  --page-padding: max(var(--sp-12), 50vw - var(--scrollbar-width) / 2 - var(--page-width) / 2);
+}
+
 html {
   line-height: 1.5;
   /* 1 */
@@ -518,3 +525,22 @@ button:disabled {
 }
 
 /* @tailwind components; */
+
+@media (max-width: 1023px) {
+  #h1-1 {
+    max-width: calc(100vw - 12rem - 0px) !important;
+  }
+}
+
+/* Optional: If you want to ensure details summary marker is hidden for custom styling */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Ensure Tailwind arbitrary values with CSS variables work */
+#app .w-\[var\(--container-width\)\] {
+  width: var(--container-width) !important;
+}
