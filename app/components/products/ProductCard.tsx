@@ -15,7 +15,7 @@ export function ProductCard({
       <Link prefetch="intent" to={`/products/${slug}`}>
         <img
           alt={productName}
-          src={productAsset?.preview + '?w=300&h=400'} // Assuming ?w=300&h=400 is desired for sizing
+          src={productAsset?.preview ? productAsset.preview + '?w=300&h=400' : 'https://placehold.co/300x400/E2E8F0/A0AEC0?text=Produkt'} // Assuming ?w=300&h=400 is desired for sizing
           className="aspect-square w-full rounded-md bg-gray-200 object-cover group-hover:opacity-75 lg:aspect-auto lg:h-80"
         />
       </Link>
